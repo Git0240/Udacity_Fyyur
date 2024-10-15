@@ -63,14 +63,14 @@ def venues():
 
     data = []
     
-    for venue, upcoming_shows_count in venues_data:
+    for venue in venues_data:
       data.append({
         "city": venue.city,
         "state": venue.state,
         "venues": [{
           "id": venue.id,
           "name": venue.name,
-          "num_upcoming_shows": upcoming_shows_count
+          "num_upcoming_shows": 0
         }]
       })
     
@@ -144,7 +144,7 @@ def create_venue_form():
 @app.route('/venues/create', methods=['POST'])
 def create_venue_submission():
       form = VenueForm(request.form)
-      if form.validate_on_submit():
+      if form.validate():
         try:
               venue_name = form.name.data
               new_venue = Venue(
@@ -235,13 +235,22 @@ def search_artists():
 def show_artist(artist_id):
   # shows the artist page with the given artist_id
   # TODO: replace with real artist data from the artist table, using artist_id
-    artist = Artist.query.get(artist_id)
+    artist = Artist.query.filter_by(id=artist_id).first()
 
     if artist is None:
         return abort(404)
 
-    data = artist
-    return render_template('pages/show_artist.html', artist=data)
+    upcoming_shows = []
+    past_shows = []
+    for show in artist.shows:
+      if show.date > datetime.now():
+        upcoming_shows.append(show)
+    else:
+      past_shows.append(show)
+      artist.upcoming_shows = upcoming_shows
+      artist.past_shows = past_shows
+    
+    return render_template('pages/show_artist.html', artist=artist)
 
 #  Update
 #  ----------------------------------------------------------------
@@ -359,9 +368,9 @@ def create_artist_submission():
   if form.validate():
     try:
 
-        data = Venue(
+        data = Artist(
             name = form.name.data,
-            address = form.address.data,
+            state = form.state.data,
             city = form.city.data,
             phone = form.phone.data,
             image_link = form.image_link.data,
@@ -369,8 +378,9 @@ def create_artist_submission():
             seeking_venue = form.seeking_venue.data,
             seeking_description = form.seeking_description.data,
             website_link = form.website_link.data,
+            genres = form.genres.data
         )
-        db.session.add(form)
+        db.session.add(data)
         db.session.commit()
         # on successful db insert, flash success
         flash('Artist ' + request.form['name'] + ' was successfully listed!')
@@ -379,8 +389,8 @@ def create_artist_submission():
       db.session.rollback()
         # TODO: on unsuccessful db insert, flash an error instead.
         # e.g., flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-      flash('An error occurred. Artist ' + data.name + ' could not be listed.')
-      message = ('An error occurred. Artist ' + data.name + ' could not be listed.')
+      flash('An error occurred. Artist ' + form.name.data + ' could not be listed.')
+      message = ('An error occurred. Artist ' + form.name.data + ' could not be listed.')
       print(sys.exc_info())
     finally:
       db.session.close()
